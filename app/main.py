@@ -1,51 +1,48 @@
-import argparse
-import sys
 import timeit
 
-from config import create_config
 from google.cloud import bigquery
+from steputil import StepArgs, StepArgsBuilder
 
 
-def main(config_path: str, output_path: str):
-    """
-    read configuration
-    """
-    config = create_config(config_path)
-
+def main(step: StepArgs):
     # setting up client
-    print(f"Setting up bigquery client for project {config.billing_project}")
-    client = bigquery.Client(project=config.billing_project)
+    project = step.config.billingProject
+    print(f"Setting up bigquery client for project {project}")
+    client = bigquery.Client(project=project)
 
     # executing query
-    print(f"Reading data from {config.input_table}")
     start_time = timeit.default_timer()
-    if config.query:
-        query = config.query
-    else:
-        query = f"SELECT * FROM {config.input_table}"
+    query = step.config.query
+    if not query:
+        query = f"SELECT * FROM {step.config.inputTable}"
+    print(f"Reading data using this query: {query}")
     df = client.query(query=query).to_dataframe()
     execution_time = timeit.default_timer() - start_time
     print(f"Read {len(df.columns)} columns and {len(df)} rows in {execution_time:.1f} seconds.")
 
     # store to output file
-    print(f"Writing data to file {output_path}")
-    df.to_json(path_or_buf=output_path, orient='records', lines=True)
+    step.output.writeJsons(df.to_dict('records'))
 
     print(f"Done")
 
 
+def validate_config(config):
+    """Validation function that checks config rules."""
+    if config.query and config.inputTable:
+        print("Cannot specify parameters `query` and `input_table` at the same time")
+        return False
+    if not config.query and not config.inputTable:
+        print("Have to specify either parameter `query` or `input_table`")
+        return False
+    return True
+
+
 if __name__ == "__main__":
-    if len(sys.argv) <= 1:  # no arguments besides script name, print README.md
-        with open("/app/README.md", "r", encoding="utf-8") as file:
-            content = file.read()
-        # Print content to output
-        print(content)
-        sys.exit(0)
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True)
-    parser.add_argument("--output", required=True)
-    args = vars(parser.parse_args())
-    main(
-        config_path=args["config"],
-        output_path=args["output"]
-    )
+    main(StepArgsBuilder()
+         .output()
+         .config("billingProject")
+         .config("query", optional=True)
+         .config("inputTable", optional=True)
+         .validate(validate_config)
+         .build()
+         )
