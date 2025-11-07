@@ -4,4 +4,4 @@ google-cloud-bigquery-storage==2.32.0
 db-dtypes==1.4.3
 pandas==2.3.0
 pandas-gbq==0.29.0
-steputil==0.2.4
+steputil==0.2.6
