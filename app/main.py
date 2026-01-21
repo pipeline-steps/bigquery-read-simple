@@ -21,25 +21,8 @@ def main(step: StepArgs):
     execution_time = timeit.default_timer() - start_time
     print(f"Read {len(df.columns)} columns and {len(df)} rows in {execution_time:.1f} seconds.")
 
-    # Convert dataframe to records
-    records = df.to_dict('records')
-
-    # Convert non-JSON-compatible values to strings for JSON serialization if configured
-    if step.config.convertNonJsonValues:
-        def convert_value(val):
-            """Convert non-JSON-compatible values to strings."""
-            if val is None or isinstance(val, (bool, int, float, str, list, dict)):
-                return val
-            # Convert any other type to string
-            return str(val)
-
-        records = [
-            {key: convert_value(value) for key, value in record.items()}
-            for record in records
-        ]
-
     # store to output file
-    step.output.writeJsons(records)
+    step.output.writeJsons(df.to_dict('records'))
 
     print(f"Done")
 
@@ -61,7 +44,6 @@ if __name__ == "__main__":
          .config("billingProject")
          .config("query", optional=True)
          .config("inputTable", optional=True)
-         .config("convertNonJsonValues", optional=True, default_value=True)
          .validate(validate_config)
          .build()
          )
