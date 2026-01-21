@@ -21,29 +21,25 @@ def main(step: StepArgs):
     execution_time = timeit.default_timer() - start_time
     print(f"Read {len(df.columns)} columns and {len(df)} rows in {execution_time:.1f} seconds.")
 
+    # Convert dataframe to records
+    records = df.to_dict('records')
+
     # Convert non-JSON-compatible values to strings for JSON serialization if configured
     if step.config.convertNonJsonValues:
-        def is_json_compatible(val):
-            """Check if a value is JSON-compatible."""
-            if val is None or isinstance(val, (bool, int, float, str)):
-                return True
-            if isinstance(val, (list, dict)):
-                return True
-            return False
+        def convert_value(val):
+            """Convert non-JSON-compatible values to strings."""
+            if val is None or isinstance(val, (bool, int, float, str, list, dict)):
+                return val
+            # Convert any other type to string
+            return str(val)
 
-        for col in df.columns:
-            # Convert datetime columns (pandas datetime64)
-            if pd.api.types.is_datetime64_any_dtype(df[col]):
-                df[col] = df[col].astype(str)
-            # Convert timedelta columns
-            elif pd.api.types.is_timedelta64_dtype(df[col]):
-                df[col] = df[col].astype(str)
-            # Convert object columns - check each value for JSON compatibility
-            elif df[col].dtype == 'object':
-                df[col] = df[col].apply(lambda x: x if is_json_compatible(x) else str(x))
+        records = [
+            {key: convert_value(value) for key, value in record.items()}
+            for record in records
+        ]
 
     # store to output file
-    step.output.writeJsons(df.to_dict('records'))
+    step.output.writeJsons(records)
 
     print(f"Done")
 
