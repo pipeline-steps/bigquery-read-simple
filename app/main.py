@@ -1,5 +1,7 @@
 import timeit
+from datetime import date, datetime
 
+import pandas as pd
 from google.cloud import bigquery
 from steputil import StepArgs, StepArgsBuilder
 
@@ -19,6 +21,17 @@ def main(step: StepArgs):
     df = client.query(query=query).to_dataframe()
     execution_time = timeit.default_timer() - start_time
     print(f"Read {len(df.columns)} columns and {len(df)} rows in {execution_time:.1f} seconds.")
+
+    # Convert date/datetime columns to strings for JSON serialization if configured
+    if step.config.convertTsToString:
+        for col in df.columns:
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                df[col] = df[col].astype(str)
+            elif df[col].dtype == 'object' and len(df) > 0:
+                # Check first non-null value for date/datetime objects
+                first_val = df[col].dropna().iloc[0] if len(df[col].dropna()) > 0 else None
+                if isinstance(first_val, (date, datetime)):
+                    df[col] = df[col].astype(str)
 
     # store to output file
     step.output.writeJsons(df.to_dict('records'))
@@ -43,6 +56,7 @@ if __name__ == "__main__":
          .config("billingProject")
          .config("query", optional=True)
          .config("inputTable", optional=True)
+         .config("convertTsToString", optional=True, default=False)
          .validate(validate_config)
          .build()
          )
