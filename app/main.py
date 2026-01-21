@@ -56,7 +56,7 @@ if __name__ == "__main__":
          .config("billingProject")
          .config("query", optional=True)
          .config("inputTable", optional=True)
-         .config("convertTsToString", optional=True, default=False)
+         .config("convertTsToString", optional=True, default_value=False)
          .validate(validate_config)
          .build()
          )
