@@ -21,8 +21,15 @@ def main(step: StepArgs):
     execution_time = timeit.default_timer() - start_time
     print(f"Read {len(df.columns)} columns and {len(df)} rows in {execution_time:.1f} seconds.")
 
+    # Convert to records and handle non-JSON types (temporary until steputil is fixed)
+    records = df.to_dict('records')
+    for record in records:
+        for key, value in record.items():
+            if not isinstance(value, (type(None), bool, int, float, str, list, dict)):
+                record[key] = str(value)
+
     # store to output file
-    step.output.writeJsons(df.to_dict('records'))
+    step.output.writeJsons(records)
 
     print(f"Done")
 
