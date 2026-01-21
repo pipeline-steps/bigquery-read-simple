@@ -27,11 +27,9 @@ def main(step: StepArgs):
         for col in df.columns:
             if pd.api.types.is_datetime64_any_dtype(df[col]):
                 df[col] = df[col].astype(str)
-            elif df[col].dtype == 'object' and len(df) > 0:
-                # Check first non-null value for date/datetime objects
-                first_val = df[col].dropna().iloc[0] if len(df[col].dropna()) > 0 else None
-                if isinstance(first_val, (date, datetime)):
-                    df[col] = df[col].astype(str)
+            elif df[col].dtype == 'object':
+                # Convert any date/datetime objects to strings
+                df[col] = df[col].apply(lambda x: str(x) if isinstance(x, (date, datetime)) else x)
 
     # store to output file
     step.output.writeJsons(df.to_dict('records'))
@@ -56,7 +54,7 @@ if __name__ == "__main__":
          .config("billingProject")
          .config("query", optional=True)
          .config("inputTable", optional=True)
-         .config("convertTsToString", optional=True, default_value=False)
+         .config("convertTsToString", optional=True, default_value=True)
          .validate(validate_config)
          .build()
          )
