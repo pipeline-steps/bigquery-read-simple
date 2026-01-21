@@ -1,5 +1,4 @@
 import timeit
-from datetime import date, datetime
 
 import pandas as pd
 from google.cloud import bigquery
@@ -22,14 +21,26 @@ def main(step: StepArgs):
     execution_time = timeit.default_timer() - start_time
     print(f"Read {len(df.columns)} columns and {len(df)} rows in {execution_time:.1f} seconds.")
 
-    # Convert date/datetime columns to strings for JSON serialization if configured
-    if step.config.convertTsToString:
+    # Convert non-JSON-compatible values to strings for JSON serialization if configured
+    if step.config.convertNonJsonValues:
+        def is_json_compatible(val):
+            """Check if a value is JSON-compatible."""
+            if val is None or isinstance(val, (bool, int, float, str)):
+                return True
+            if isinstance(val, (list, dict)):
+                return True
+            return False
+
         for col in df.columns:
+            # Convert datetime columns (pandas datetime64)
             if pd.api.types.is_datetime64_any_dtype(df[col]):
                 df[col] = df[col].astype(str)
+            # Convert timedelta columns
+            elif pd.api.types.is_timedelta64_dtype(df[col]):
+                df[col] = df[col].astype(str)
+            # Convert object columns - check each value for JSON compatibility
             elif df[col].dtype == 'object':
-                # Convert any date/datetime objects to strings
-                df[col] = df[col].apply(lambda x: str(x) if isinstance(x, (date, datetime)) else x)
+                df[col] = df[col].apply(lambda x: x if is_json_compatible(x) else str(x))
 
     # store to output file
     step.output.writeJsons(df.to_dict('records'))
@@ -54,7 +65,7 @@ if __name__ == "__main__":
          .config("billingProject")
          .config("query", optional=True)
          .config("inputTable", optional=True)
-         .config("convertTsToString", optional=True, default_value=True)
+         .config("convertNonJsonValues", optional=True, default_value=True)
          .validate(validate_config)
          .build()
          )
